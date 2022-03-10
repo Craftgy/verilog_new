@@ -1,0 +1,4 @@
+module Redge(
+    clk,
+    din
+)

@@ -1,0 +1,128 @@
+#! /usr/local/Cellar/icarus-verilog/11.0/bin/vvp
+:ivl_version "11.0 (stable)";
+:ivl_delay_selection "TYPICAL";
+:vpi_time_precision + 0;
+:vpi_module "/usr/local/Cellar/icarus-verilog/11.0/lib/ivl/system.vpi";
+:vpi_module "/usr/local/Cellar/icarus-verilog/11.0/lib/ivl/vhdl_sys.vpi";
+:vpi_module "/usr/local/Cellar/icarus-verilog/11.0/lib/ivl/vhdl_textio.vpi";
+:vpi_module "/usr/local/Cellar/icarus-verilog/11.0/lib/ivl/v2005_math.vpi";
+:vpi_module "/usr/local/Cellar/icarus-verilog/11.0/lib/ivl/va_math.vpi";
+S_0x7f7c78504190 .scope module, "CRCCYC" "CRCCYC" 2 1;
+ .timescale 0 0;
+    .port_info 0 /INPUT 1 "Clock";
+    .port_info 1 /INPUT 32 "Data_In";
+    .port_info 2 /INPUT 1 "CRC_En";
+    .port_info 3 /INPUT 1 "CRC_Clr";
+    .port_info 4 /OUTPUT 10 "CRC_Out";
+L_0x6000032e8000 .functor BUFZ 10, v0x600002bfc120_0, C4<0000000000>, C4<0000000000>, C4<0000000000>;
+o0x7f7c78032008 .functor BUFZ 1, C4<z>; HiZ drive
+v0x600002bf8090_0 .net "CRC_Clr", 0 0, o0x7f7c78032008;  0 drivers
+o0x7f7c78032038 .functor BUFZ 1, C4<z>; HiZ drive
+v0x600002bfc000_0 .net "CRC_En", 0 0, o0x7f7c78032038;  0 drivers
+v0x600002bfc090_0 .net "CRC_Out", 9 0, L_0x6000032e8000;  1 drivers
+v0x600002bfc120_0 .var "CRC_Temp", 9 0;
+o0x7f7c780320c8 .functor BUFZ 1, C4<z>; HiZ drive
+v0x600002bfc1b0_0 .net "Clock", 0 0, o0x7f7c780320c8;  0 drivers
+o0x7f7c780320f8 .functor BUFZ 32, C4<zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz>; HiZ drive
+v0x600002bfc240_0 .net "Data_In", 31 0, o0x7f7c780320f8;  0 drivers
+v0x600002bfc2d0_0 .var "crcfb", 0 0;
+v0x600002bfc360_0 .var/i "i", 31 0;
+E_0x6000017e81b0 .event posedge, v0x600002bfc1b0_0;
+    .scope S_0x7f7c78504190;
+T_0 ;
+    %wait E_0x6000017e81b0;
+    %load/vec4 v0x600002bf8090_0;
+    %flag_set/vec4 8;
+    %jmp/0xz  T_0.0, 8;
+    %pushi/vec4 0, 0, 10;
+    %store/vec4 v0x600002bfc120_0, 0, 10;
+    %jmp T_0.1;
+T_0.0 ;
+    %load/vec4 v0x600002bfc000_0;
+    %flag_set/vec4 8;
+    %jmp/0xz  T_0.2, 8;
+    %pushi/vec4 31, 0, 32;
+    %store/vec4 v0x600002bfc360_0, 0, 32;
+T_0.4 ;
+    %load/vec4 v0x600002bfc360_0;
+    %cmpi/s 0, 0, 32;
+    %flag_inv 5; GE is !LT
+    %jmp/0xz T_0.5, 5;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 9, 5;
+    %store/vec4 v0x600002bfc2d0_0, 0, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 8, 5;
+    %load/vec4 v0x600002bfc2d0_0;
+    %xor;
+    %ix/load 4, 9, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 7, 4;
+    %ix/load 4, 8, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 6, 4;
+    %ix/load 4, 7, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 5, 4;
+    %ix/load 4, 6, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 4, 4;
+    %load/vec4 v0x600002bfc2d0_0;
+    %xor;
+    %ix/load 4, 5, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 3, 3;
+    %load/vec4 v0x600002bfc2d0_0;
+    %xor;
+    %ix/load 4, 4, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 2, 3;
+    %ix/load 4, 3, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 1, 2;
+    %ix/load 4, 2, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc120_0;
+    %parti/s 1, 0, 2;
+    %load/vec4 v0x600002bfc2d0_0;
+    %xor;
+    %ix/load 4, 1, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc240_0;
+    %load/vec4 v0x600002bfc360_0;
+    %part/s 1;
+    %load/vec4 v0x600002bfc2d0_0;
+    %xor;
+    %ix/load 4, 0, 0;
+    %flag_set/imm 4, 0;
+    %store/vec4 v0x600002bfc120_0, 4, 1;
+    %load/vec4 v0x600002bfc360_0;
+    %subi 1, 0, 32;
+    %store/vec4 v0x600002bfc360_0, 0, 32;
+    %jmp T_0.4;
+T_0.5 ;
+T_0.2 ;
+T_0.1 ;
+    %jmp T_0;
+    .thread T_0;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+    "N/A";
+    "<interactive>";
+    "Crc.v";

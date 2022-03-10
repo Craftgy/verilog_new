@@ -1,0 +1,5 @@
+module sync (
+    ports
+);
+    
+endmodule
