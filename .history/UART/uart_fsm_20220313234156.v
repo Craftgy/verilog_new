@@ -1,0 +1,379 @@
+module uart #(
+  parameter CMD_WIDTH  = 16    ,
+  parameter READ_WIDTH = 8     ,
+  parameter BR         = 434   
+) (
+  input                       clk      ,
+  input                       rst_n    ,
+  input      [ CMD_WIDTH-1:0] cmd_in   ,
+  input                       cmd_vld  ,
+  input                       rx       ,
+  output reg                  tx       ,
+  output                      read_rdy ,
+  output     [READ_WIDTH-1:0] read_data,
+  output reg                  cmd_rdy
+);
+
+reg [4:0]           fsm_cs ;
+reg [4:0]           fsm_ns ;
+reg [CMD_WIDTH-1:0] cmd_buf;
+wire                cmd_ready;
+reg [8:0] br_cnt_1;
+reg [8:0] br_cnt_2;
+reg [3:0] tx_cnt;
+reg [3:0] rx_cnt; 
+reg check;
+wire check_flag;
+reg [7:0] w_dly;
+reg [2:0] rx_buf;
+wire nege_flag;
+reg [7:0] read_buf;
+
+assign nege_flag = rx_buf[2:1] == 2'b10;
+assign check_flag = (check == ~^read_buf) && br_cnt_2 == BR && rx_cnt == 4'd10;
+assign read_rdy = check_flag;
+
+localparam IDLE              = 4'b0, //无效状态
+           RW_JUDGE          = 4'b1,
+           W0_START_BIT      = 4'd2,
+           W0_DATA_BIT       = 4'd3,
+           W0_CHECK_BIT      = 4'd4,
+           W0_STOP_BIT       = 4'd5,
+           W_DELAY           = 4'd6,
+           W1_START_BIT      = 4'd7,
+           W1_DATA_BIT       = 4'd8,
+           W3_CHECK_BIT      = 4'd9,
+           W4_STOP_BIT       = 4'd10,
+           R_CMD_START_BIT   = 4'd11,
+           R_CMD_DATA_BIT    = 4'd12,
+           R_CMD_CHEAK_BIT   = 4'd13,
+           R_CMD_STOP_BIT    = 4'd14,
+           SEND_READ_DATA    = 4'd15;
+
+
+//第一段
+always @(posedge clk or negedge rst_n) begin
+  if(!rst_n)
+    fsm_cs <= IDLE;
+  else 
+    fsm_cs <=fsm_ns;
+end
+
+assign cmd_ready = cmd_vld;
+//第二段状态转换
+always @(*) begin 
+case(fsm_cs)
+            IDLE:
+                    begin
+                      if(cmd_ready)
+                        fsm_ns = RW_JUDGE;
+                      else
+                        fsm_ns = IDLE;
+                    end
+            RW_JUDGE:
+                    begin
+                      if(cmd_buf[15] == 1'b1)
+                      fsm_ns = W0_START_BIT;
+                      else if(cmd_buf[15] == 1'b0)
+                      fsm_ns = W1_START_BIT;
+                      else 
+                      fsm_ns = RW_JUDGE;
+                    end        
+            W0_START_BIT :
+                    begin
+                      if(tx_cnt == 4'd1)
+                        fsm_ns = W0_DATA_BIT;
+                      else 
+                        fsm_ns = W0_START_BIT;
+                    end  
+            W0_DATA_BIT :
+                    begin
+                      if(tx_cnt == 4'd9)
+                        fsm_ns = W0_CHECK_BIT;
+                      else
+                        fsm_ns = W0_DATA_BIT;
+                    end
+            W0_CHECK_BIT:
+                    begin
+                      if(tx_cnt == 4'd10)
+                        fsm_ns = W0_STOP_BIT;
+                      else
+                        fsm_ns = W0_CHECK_BIT;
+                    end
+            W0_STOP_BIT:
+                    begin
+                      if(tx_cnt == 4'd11)
+                        fsm_ns = W_DELAY;
+                      else
+                        fsm_ns = W0_STOP_BIT;
+                    end
+            W_DELAY:
+                     begin
+                       if(w_dly == 8'd100 && cmd_buf[15] == 1)
+                         fsm_ns = W1_START_BIT;
+                        else if(w_dly == 8'd100 && cmd_buf[15] == 0 && nege_flag)
+                          fsm_ns = R_CMD_DATA_BIT;
+                        else
+                          fsm_ns = W_DELAY;
+                     end
+             W1_START_BIT :
+                     begin
+                       if(tx_cnt == 4'd1)
+                         fsm_ns = W1_DATA_BIT;
+                       else 
+                         fsm_ns = W1_DATA_BIT;
+                     end  
+             W1_DATA_BIT :
+                    begin
+                      if(tx_cnt == 4'd9)
+                        fsm_ns = W1_CHECK_BIT;
+                      else
+                        fsm_ns = W1_DATA_BIT;
+                    end
+             W1_CHECK_BIT:
+                    begin
+                      if(tx_cnt == 4'd10)
+                        fsm_ns = W1_STOP_BIT;
+                      else
+                        fsm_ns = W1_CHECK_BIT;
+                     end
+             W1_STOP_BIT:
+                     begin
+                       if(tx_cnt == 4'd11 && cmd_buf[15] == 1'b1)
+                         fsm_ns = IDLE;
+                       else if(tx_cnt == 4'd11 && cmd_buf[15] ==1'b0)
+                        fsm_ns = W_DELAY;
+                        else
+                         fsm_ns = W1_STOP_BIT;
+                     end    
+            R_CMD_START_BIT:
+                     begin
+                       if(rx_cnt == 4'd1 )
+                         fsm_ns = R_CMD_DATABIT;
+                       else 
+                         fsm_ns = R_CMD_START_BIT;
+                     end
+            R_CMD_DATA_BIT:
+                     begin
+                        if(rx_cnt == 4'd9 )  
+                          fsm_ns = R_CMD_CHEAK_BIT;
+                        else
+                          fsm_ns = R_CMD_DATA_BIT;
+                     end     
+            R_CMD_CHEAK_BIT :
+                     begin
+                       if(rx_cnt == 4'd10)
+                        fsm_ns = R_CMD_STOP_BIT;
+                       else
+                        fsm_ns = R_CMD_CHEAK_BIT;
+                     end
+            R_CMD_STOP_BIT  :
+                     begin
+                       if(rx_cnt == 4'b11)
+                        fsm_ns = SEND_READ_DATA;
+                       else
+                        fsm_ns = R_CMD_STOP_BIT;
+                     end
+            SEND_READ_DATA  :
+                     begin
+                       if(check_flag == 1'b1)
+                        fsm_ns = IDEL;
+                       else
+                        fsm_ns = IDEL; 
+                     end
+            default:
+                     fsm_ns = IDEL;
+endcase
+end
+//第三段输出
+always @(posedge clk or negedge rst_n) begin
+  case(fsm_ns)
+              IDEL:
+                          begin
+                            cmd_buf <= {CMD_WIDTH{1'b0}};
+                            tx_cnt <= 4'b0;
+                            rx_cnt <= 4'b0;
+                            check_flag <= 1'b0;
+                            br_cnt_1 <= 9'b0;
+                            br_cnt_2 <= 9'b0;
+                            w_dly <= 8'd0;
+                            tx <= 1'b1;
+                            read_data <= 8'b0;
+                            cmd_rdy <= 1'b1;
+                            read_rdy <= 1'b0;
+                          end      
+              RW_JUDGE:     
+                            begin
+                              cmd_buf <= cmd_in;
+                              cmd_rdy <= 1'b0;
+                            end
+
+              W0_START_BIT  :
+                            begin
+                              if(br_cnt_1 == BR)
+                                begin
+                                tx_cnt <= tx_cnt +1'b1;
+                                br_cnt_1 <= 9'b0;
+                                end
+                              else
+                                br_cnt_1 <= br_cnt_1 + 1'b1;
+                              tx <= 1'b0;
+                            end
+              W0_DATA_BIT   :
+                            begin
+                              if(tx_cnt < 4'd9)
+                              begin
+                                if(br_cnt_1 == BR)
+                                  begin
+                                  tx_cnt <= tx_cnt +1'b1;
+                                  br_cnt_1 <= 9'b0;
+                                  end
+                                else 
+                                  br_cnt_1 <= br_cnt_1 +1'b1;
+                              end
+                              tx <= cmd_buf[tx_cnt-1];
+                            end
+              W0_CHECK_BIT   :
+                            begin
+                              if(br_cnt_1 == BR)
+                                begin
+                                tx_cnt <= tx_cnt +1'b1;
+                                br_cnt_1 <= 9'b0;
+                                end
+                              else
+                                br_cnt_1 <= br_cnt_1 +1'b1;
+                              tx <= ~^cmd_buf[7:0];
+                            end
+              W0_STOP_BIT    :
+                            begin
+                              if(br_cnt_1 == BR)
+                              begin
+                              tx_cnt <= tx_cnt + 1'b1;
+                              br_cnt_1 <= 9'b0;
+                              end
+                            else
+                              br_cnt_1 <= br_cnt_1 +1'b1;
+                            tx <= 1;
+                            end
+              W_DELAY        :
+                            begin
+                              if(w_dly == 8'd100)
+                              begin
+                                w_dly <= 8'd0;
+                                tx_cnt <= 4'b0;
+                              end
+                              else
+                                w_dly <=w_dly + 1'b1;
+                            end
+              W1_StASRT_BIT  :
+                            begin
+                              if(br_cnt_1 == BR)
+                              begin
+                                tx_cnt <= tx_cnt +1'b1;
+                                br_cnt_1 <= 9'b0;
+                                end
+                              else
+                                br_cnt_1 <= br_cnt_1 + 1'b1;
+                              tx <= 1'b0;
+                            end
+              W2_DATA_BIT    :
+                            begin
+                              if(tx_cnt < 4'd9)
+                              begin
+                                if(br_cnt_1 == BR)
+                                  begin
+                                  tx_cnt <= tx_cnt +1'b1;
+                                  br_cnt_1 <= 9'b0;
+                                  end
+                                else 
+                                  br_cnt_1 <= br_cnt_1 +1'b1;
+                              end
+                              tx <= cmd_buf[tx_cnt+6];
+                            end
+              W3_CHECK_BIT   :  
+                            begin
+                              if(br_cnt_1 == BR)
+                                begin
+                                tx_cnt <= tx_cnt +1'b1;
+                                br_cnt_1 <= 9'b0;
+                                end
+                              else
+                                br_cnt_1 <= br_cnt_1 +1'b1;
+                              tx <= ~^cmd_buf[7:0];
+                            end
+              W4_STOP_BIT     :
+                            begin
+                              if(br_cnt_1 == BR)
+                              begin
+                              tx_cnt <= 4'b0 ;
+                              br_cnt_1 <= 9'b0;
+                              end
+                            else
+                              br_cnt_1 <= br_cnt_1 +1'b1;
+                              tx <= 1;
+                            end
+              R_CMD_START_BIT :
+                            begin
+                              if(br_cnt_1 == BR)
+                              begin
+                                rx_cnt <= rx_cnt +1'b1;
+                                br_cnt_2 <= 9'b0;
+                                end
+                              else if(rx_buf[2] == 1'b0)
+                                br_cnt_2 <= br_cnt_2 + 1'b1;
+                            end
+              R_CMD_DATA_BIT :
+                            begin
+                              if(rx_cnt < 9)
+                                begin
+                                if(br_cnt_2 == 217)
+                                  read_buf <= {read_buf[7:1],rx_buf[2]};
+                                if(br_cnt_2 == BR)
+                                  begin
+                                  rx_cnt <= rx_cnt + 1'b1;
+                                  br_cnt_2 <= 9'b0;
+                                  end
+                                end
+                            end
+              R_CMD_CHEAK_BIT:
+                            begin
+                              if(rx_buf < 10)
+                                begin
+                                  if(br_cnt_2 ==217 )
+                                    check <= rx_buf[2];
+                                  if(br_cnt_2 == BR)
+                                    begin
+                                      rx_cnt <= rx_cnt +1'b1;
+                                      br_cnt_2 <= 9'b0;
+                                    end
+                                end
+                            end
+              R_CMD_STOP_BIT :
+                            begin
+                              if(br_cnt_2 == BR)
+                                begin
+                                  rx_cnt <= rx_cnt +1'b1;
+                                  br_cnt_2 <= 9'b0;
+                                end
+                              else
+                                br_cnt_2 <= br_cnt_2 + 1'b1;
+                            end
+
+              SEND_READ_DATA :
+                            begin
+                              if(check_flag)
+                              begin
+                                read_data <= read_buf;
+                              end
+                            end
+endcase
+end
+
+always @(posedge clk or negedge rst_n) begin
+  if(!rst_n)
+    rx_buf <= 3'b0;
+  else
+    rx_buf <= {rx_buf[1:0],rx};
+end
+
+endmodule
